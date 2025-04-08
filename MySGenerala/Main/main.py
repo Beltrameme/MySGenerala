@@ -12,24 +12,25 @@ class Generala:
             "Escalera": None, "Full": None, "Poker": None, "Generala": None,
             "Doble": None
         }
+        self.last_generala = False  # Para controlar el Doble
 
     def roll_dice(self):
         if self.rolls_left == 0:
-            print("No rolls left this turn!")
+            print("¡No te quedan más tiradas en este turno!")
             return
 
-        print("\nRolling dice...")
+        print("\nTirando los dados...")
         for i in range(5):
             if not self.held[i]:
                 self.dice[i] = random.randint(1, 6)
 
         self.rolls_left -= 1
         self.display_dice()
-        print(f"Rolls left: {self.rolls_left}")
+        print(f"Tiradas restantes: {self.rolls_left}")
 
     def display_dice(self):
-        print("Dice:", " ".join(str(d) for d in self.dice))
-        print("Held:", " ".join("X" if h else " " for h in self.held))
+        print("Dados:", " ".join(str(d) for d in self.dice))
+        print("Guardados:", " ".join("X" if h else " " for h in self.held))
 
     def toggle_hold(self, positions):
         for pos in positions:
@@ -45,17 +46,17 @@ class Generala:
         counts = [self.dice.count(i) for i in range(1, 7)]
         score_options = {}
 
-        # Number scores
+        # Puntajes por números
         for i in range(1, 7):
             if self.scores[str(i)] is None:
                 score_options[str(i)] = i * counts[i - 1]
 
-        # Special combinations
-        if 5 in counts and self.scores["Generala"] is None:
-            score_options["Generala"] = 50 if counts.count(5) == 1 else 100
-
-        if 5 in counts and self.scores["Generala"] is not None and ["Doble"] is None  :
-            score_options["Doble"] = 100 if counts.count(5) == 1 else 100
+        # Combinaciones especiales
+        if 5 in counts:
+            if self.scores["Generala"] is None:
+                score_options["Generala"] = 50
+            elif self.last_generala and self.scores["Doble"] is None:
+                score_options["Doble"] = 100
 
         if 4 in counts and self.scores["Poker"] is None:
             score_options["Poker"] = 40
@@ -75,20 +76,27 @@ class Generala:
 
     def record_score(self, category):
         if self.scores[category] is not None:
-            print("Category already scored!")
+            print("¡Ya anotaste puntos en esa categoría!")
             return False
 
         score_options = self.calculate_scores()
-        if category not in score_options:
-            print("Invalid category for current dice!")
+        if category not in score_options and category not in self.scores:
+            print("¡Categoría inválida!")
             return False
 
-        self.scores[category] = score_options[category]
+        if category in score_options:
+            self.scores[category] = score_options[category]
+        else:
+            # Poner cero en la categoría
+            self.scores[category] = 0
+
+        # Controlar si fue Generala para el Doble
+        self.last_generala = (category == "Generala")
         self.reset_turn()
         return True
 
     def display_scores(self):
-        print("\nScore Card:")
+        print("\nPlanilla de Puntajes:")
         for category, score in self.scores.items():
             print(f"{category:>8}: {score if score is not None else '-'}")
 
@@ -98,71 +106,75 @@ class Generala:
 
         while True:
             if self.rolls_left == 0:
-                print("\nNo rolls left - you must choose a scoring option!")
+                print("\n¡No te quedan tiradas! Tenés que elegir una categoría para anotar.")
                 self.display_dice()
                 self.display_scores()
                 score_options = self.calculate_scores()
 
                 if score_options:
-                    print("\nAvailable scoring options:")
+                    print("\nOpciones para anotar:")
                     for cat, score in score_options.items():
                         print(f"{cat}: {score}")
                 else:
-                    print("\nNo valid scoring options! You must select a category to zero.")
+                    print("\n¡No hay opciones válidas! Tenés que poner cero en una categoría.")
 
                 while True:
-                    category = input("Enter category to score (or 'z' to zero a category): ").capitalize()
+                    category = input("Elegí categoría para anotar (o 'z' para poner cero): ").capitalize()
                     if category.lower() == 'z':
-                        category = input("Enter category to zero: ").capitalize()
+                        category = input("Elegí categoría para poner cero: ").capitalize()
                         if category in self.scores and self.scores[category] is None:
                             self.scores[category] = 0
                             self.reset_turn()
                             break
                         else:
-                            print("Invalid category to zero!")
-                    elif category in self.scores and self.scores[category] is None:
-                        if category in score_options or not score_options:  # Allow zeroing even if not in options
-                            self.record_score(category)
+                            print("¡No podés poner cero en esa categoría!")
+                    elif category in self.scores:
+                        if self.record_score(category):
                             break
-                        else:
-                            print("Invalid category for current dice!")
                     else:
-                        print("Invalid category!")
+                        print("¡Categoría inválida!")
                 break
 
-            action = input("\nChoose action: (r)oll, (h)old, (s)core, (q)uit: ").lower()
+            action = input("\n¿Qué hacés? (t)irar, (g)uardar, (a)notar, (s)alir: ").lower()
 
-            if action == 'r':
+            if action == 't':
                 self.roll_dice()
-            elif action == 'h':
+            elif action == 'g':
                 try:
-                    positions = list(
-                        map(int, input("Enter dice positions to hold/unhold (1-5, space separated): ").split()))
+                    positions = list(map(int, input("Posiciones de dados a guardar/liberar (1-5, separados por espacio): ").split()))
                     self.toggle_hold(positions)
                 except:
-                    print("Invalid input!")
-            elif action == 's':
+                    print("¡Entrada inválida! Tenés que poner números del 1 al 5.")
+            elif action == 'a':
                 self.display_scores()
                 score_options = self.calculate_scores()
                 if score_options:
-                    print("\nAvailable scoring options:")
+                    print("\nOpciones para anotar:")
                     for cat, score in score_options.items():
                         print(f"{cat}: {score}")
 
-                    category = input("Enter category to score: ").capitalize()
-                    if self.record_score(category):
-                        break
+                    while True:
+                        category = input("Elegí categoría para anotar: ").capitalize()
+                        if category in self.scores:
+                            if self.record_score(category):
+                                break
+                        else:
+                            print("¡Categoría inválida!")
                 else:
-                    print("No valid scoring options! You must select a category to zero.")
-                    category = input("Enter category to zero: ").capitalize()
-                    if category in self.scores and self.scores[category] is None:
-                        self.scores[category] = 0
-                        self.reset_turn()
-                        break
-            elif action == 'q':
+                    print("¡No hay opciones válidas! Tenés que poner cero en una categoría.")
+                    while True:
+                        category = input("Elegí categoría para poner cero: ").capitalize()
+                        if category in self.scores and self.scores[category] is None:
+                            self.scores[category] = 0
+                            self.reset_turn()
+                            break
+                        else:
+                            print("¡No podés poner cero en esa categoría!")
+                break
+            elif action == 's':
                 sys.exit()
             else:
-                print("Invalid action!")
+                print("¡Acción inválida! Tenés que poner t, g, a o s.")
 
         self.display_scores()
 
@@ -172,7 +184,6 @@ class Generala:
     def calculate_total(self):
         total = sum(score for score in self.scores.values() if score is not None)
 
-        # Bonus for number section (if sum is >= 60)
         number_section = sum(self.scores[str(i)] for i in range(1, 7) if self.scores[str(i)] is not None)
         if number_section >= 60:
             total += 30
@@ -180,16 +191,16 @@ class Generala:
         return total
 
     def play_game(self):
-        print("Welcome to Generala!")
-        print("Objective: Score points by rolling specific combinations with five dice.")
+        print("¡Bienvenido a la Generala!")
+        print("Objetivo: Sumar puntos haciendo combinaciones con cinco dados.")
 
         while not self.is_game_over():
             print("\n" + "=" * 40)
-            print(f"Current total: {self.calculate_total()}")
+            print(f"Puntaje actual: {self.calculate_total()}")
             self.play_turn()
 
-        print("\nGame Over!")
-        print(f"Final Score: {self.calculate_total()}")
+        print("\n¡Fin del juego!")
+        print(f"Puntaje final: {self.calculate_total()}")
 
 
 if __name__ == "__main__":
